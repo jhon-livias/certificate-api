@@ -14,7 +14,7 @@ Route::controller(CertificateController::class)->group(function() {
     Route::get('/certificates/verify/{trackingCode}', 'verify');
     Route::post('/certificates/generate', 'generateSingle');
     Route::post('/certificates', 'store');
-    Route::post('/certificates/{certificate}', 'update'); // NUEVA RUTA PARA ACTUALIZAR
+    Route::post('/certificates/{certificate}', 'update');
     Route::get('/certificates', 'index');
     Route::get('/certificates/{certificate}/download', 'download');
 });
