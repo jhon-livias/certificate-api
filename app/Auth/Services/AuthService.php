@@ -74,7 +74,7 @@ class AuthService
     public function generateTokenResponse(string $accessToken, string $refreshToken): array
     {
         return [
-            'token' => $accessToken,
+            'accessToken' => $accessToken,
             'refreshToken' => $refreshToken,
             'expirationToken'=> $this->calculateExpirationInMilliseconds(
                 config('sanctum.access_token_expiration')

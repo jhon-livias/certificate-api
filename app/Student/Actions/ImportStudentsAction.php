@@ -1,55 +1,40 @@
 <?php
 
-namespace App\Student\Jobs;
+namespace App\Student\Actions;
 
 use App\Student\Models\Student;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 
-class ProcessStudentBulkJob implements ShouldQueue
+class ImportStudentsAction
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public function __construct(public string $filePath) {}
-
-    public function handle(): void
+    public function execute($uploadedFile): void
     {
-        /// 1. Usamos Storage::exists() en lugar del file_exists() nativo de PHP
-        if (!Storage::exists($this->filePath)) {
-            Log::error("El archivo no se guardó en el disco local: {$this->filePath}");
-            return;
-        }
+        $rows = Excel::toArray(new \stdClass, $uploadedFile)[0];
 
-        // 2. Dejamos que Laravel calcule la ruta absoluta exacta para tu sistema operativo
-        $fullPath = Storage::path($this->filePath);
-
-        Log::info("Excel encontrado exitosamente en: " . $fullPath);
-
-        $rows = Excel::toArray(new \stdClass, $fullPath)[0];
-
+        // Usamos transacción para asegurar la integridad
         DB::transaction(function () use ($rows) {
             foreach ($rows as $index => $row) {
+                // Sumamos 1 al índice para que el Log te dé la fila exacta en Excel
                 $filaExcel = $index + 1;
+
+                // Saltamos las 6 primeras filas (membrete, logos, cabeceras)
                 if ($index < 6) continue;
 
                 $documentNumber = trim((string)($row[5] ?? ''));
                 $fullName = trim($row[2] ?? '');
 
+                // Validación básica de fila vacía
                 if (empty($documentNumber) || empty($fullName)) continue;
 
+                // Capturamos el código (Alumno o Postulante)
                 $studentCode = trim(!empty($row[35]) ? (string)$row[35] : (string)($row[8] ?? ''));
 
+                // Si no tiene ningún código, PostgreSQL nos dará error. Lo logueamos y saltamos.
                 if (empty($studentCode)) {
-                    Log::warning("Fila {$filaExcel} ignorada: Sin código.");
+                    Log::warning("Fila {$filaExcel} ignorada: El alumno {$fullName} (DNI: {$documentNumber}) no tiene Código asignado en el Excel.");
                     continue;
                 }
 
@@ -72,22 +57,17 @@ class ProcessStudentBulkJob implements ShouldQueue
                             'graduation_year' => trim($row[37] ?? ''),
                         ]
                     );
-
-                    Cache::forget("student_{$studentCode}");
-
                 } catch (QueryException $e) {
+                    // 23505 es el código SQLSTATE para violaciones Unique en PostgreSQL
                     if ($e->getCode() == '23505') {
-                        Log::warning("Fila {$filaExcel} conflicto: Código '{$studentCode}' duplicado.");
+                        Log::error("Fila {$filaExcel} conflicto: El código '{$studentCode}' ya pertenece a otro alumno en la BD. Alumno actual: {$fullName}");
                     } else {
-                        // ¡ESTO FALTABA! Si falla por otra cosa (ej. string muy largo), ahora sí lo verás en el log
-                        Log::error("Fila {$filaExcel} ERROR SQL: " . $e->getMessage());
+                        Log::error("Fila {$filaExcel} Error BD ({$fullName}): " . $e->getMessage());
                     }
                 } catch (\Exception $e) {
-                    Log::error("Fila {$filaExcel} ERROR GENERAL: " . $e->getMessage());
+                    Log::error("Fila {$filaExcel} Error General ({$fullName}): " . $e->getMessage());
                 }
             }
         });
-
-        Storage::delete($this->filePath);
     }
 }

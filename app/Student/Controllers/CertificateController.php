@@ -3,21 +3,53 @@
 namespace App\Student\Controllers;
 
 use App\Shared\Foundation\Controllers\Controller;
+use App\Shared\Foundation\Requests\GetAllRequest;
+use App\Shared\Foundation\Resources\GetAllCollection;
+use App\Shared\Foundation\Services\SharedService;
 use App\Student\Jobs\ProcessCertificateJob;
 use App\Student\Jobs\ProcessStudentBulkJob;
 use App\Student\Models\Certificate;
 use App\Student\Models\Student;
+use App\Student\Resources\StudentResource;
+use Illuminate\Support\Facades\Cache;
 use function Illuminate\Support\defer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 
 class CertificateController extends Controller
 {
+    public function __construct(
+        protected SharedService $sharedService,
+    ) {
+    }
+
     public function student(string $code): JsonResponse
     {
-        $student = Student::where('student_code', $code)->firstOrFail();
+        $student = Cache::remember("student_{$code}", now()->addHours(24), function () use ($code) {
+            return Student::where('student_code', $code)->firstOrFail();
+        });
         return response()->json(['data' => $student]);
+    }
+
+    public function students(GetAllRequest $request): JsonResponse
+    {
+        $query = Cache::remember(
+            key: 'students_all',
+            ttl: now()->addHours(24),
+            callback: function () use ($request): array {
+                return $this->sharedService->query(
+                    request: $request,
+                    entityName: 'Student',
+                    modelName: 'Student',
+                    columnSearch: ['id', 'student_code', 'document_number', 'full_name', 'gender', 'email', 'phone', 'address', 'admission_mode', 'program', 'campus', 'modality', 'shift', 'status', 'graduation_year'],
+                );
+            }
+        );
+         return response()->json(new GetAllCollection(
+            resource: StudentResource::collection($query['collection']),
+            total: $query['total'],
+            pages: $query['pages']
+        ));
     }
 
     public function uploadBulk(Request $request)
@@ -33,10 +65,10 @@ class CertificateController extends Controller
             ]
         ]);
 
-        $rows = Excel::toArray(new \stdClass, $request->file('document'))[0];
+        $path = $request->file('document')->store('imports');
 
-        // Enviamos TODO el array de filas al nuevo Job en segundo plano
-        ProcessStudentBulkJob::dispatch($rows);
+        // Mandamos la ruta al Job en Redis
+        ProcessStudentBulkJob::dispatch($path);
 
         return response()->json([
             'message' => 'La carga masiva de estudiantes ha comenzado en segundo plano.'
