@@ -14,10 +14,11 @@ class Certificate extends Model
      */
     protected $fillable = [
         'id',
-        'tracking_code',
+        'name',
+        'code',
+        'file_name',
         'file_path',
-        'status',
-        'student_id',
+        'last_modification_time',
     ];
 
     /**
@@ -27,6 +28,7 @@ class Certificate extends Model
      */
     protected $hidden = [
         'creator_user_id',
+        'creation_time',
         'last_modification_time',
         'last_modifier_user_id',
         'is_deleted',
@@ -40,6 +42,18 @@ class Certificate extends Model
      * @var bool
      */
     public $timestamps = false;
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'last_modification_time' => 'datetime',
+        ];
+    }
 
     public function student(): BelongsTo
     {

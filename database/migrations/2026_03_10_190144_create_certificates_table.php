@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -21,10 +20,10 @@ return new class extends Migration
             $table->datetime('deletion_time')->nullable();
             $table->foreignId('deleter_user_id')->nullable()->constrained('users');
             $table->boolean('is_deleted')->default(false);
-            $table->foreignId('student_id')->constrained()->onDelete('cascade');
-            $table->string('tracking_code')->unique();
-            $table->string('file_path')->nullable();
-            $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');
+            $table->string('code')->unique();
+            $table->string('name')->comment('Nombre visual para el usuario');
+            $table->string('file_name')->comment('Nombre original del archivo word');
+            $table->string('file_path')->comment('Ruta física en storage');
         });
     }
 

@@ -38,6 +38,7 @@ class Student extends Model
      */
     protected $hidden = [
         'creator_user_id',
+        'creation_time',
         'last_modification_time',
         'last_modifier_user_id',
         'is_deleted',

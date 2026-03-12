@@ -3,80 +3,110 @@
 namespace App\Student\Controllers;
 
 use App\Shared\Foundation\Controllers\Controller;
-use App\Shared\Foundation\Requests\GetAllRequest;
-use App\Shared\Foundation\Resources\GetAllCollection;
-use App\Shared\Foundation\Services\SharedService;
 use App\Student\Jobs\ProcessCertificateJob;
-use App\Student\Jobs\ProcessStudentBulkJob;
 use App\Student\Models\Certificate;
 use App\Student\Models\Student;
-use App\Student\Resources\StudentResource;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use function Illuminate\Support\defer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CertificateController extends Controller
 {
-    public function __construct(
-        protected SharedService $sharedService,
-    ) {
-    }
-
-    public function student(string $code): JsonResponse
+    public function index()
     {
-        $student = Cache::remember("student_{$code}", now()->addHours(24), function () use ($code) {
-            return Student::where('student_code', $code)->firstOrFail();
+        $templates = Certificate::orderBy('creation_time', 'desc')->get()->map(function ($tpl) {
+            return [
+                'id' => $tpl->id,
+                'name' => $tpl->name,
+                'code' => $tpl->code,
+                'fileName' => $tpl->file_name,
+                'updatedAt' => $tpl->last_modification_time ? $tpl->last_modification_time->diffForHumans() : 'Hace un momento'
+            ];
         });
-        return response()->json(['data' => $student]);
+
+        return response()->json($templates);
     }
 
-    public function students(GetAllRequest $request): JsonResponse
-    {
-        $query = Cache::remember(
-            key: 'students_all',
-            ttl: now()->addHours(24),
-            callback: function () use ($request): array {
-                return $this->sharedService->query(
-                    request: $request,
-                    entityName: 'Student',
-                    modelName: 'Student',
-                    columnSearch: ['id', 'student_code', 'document_number', 'full_name', 'gender', 'email', 'phone', 'address', 'admission_mode', 'program', 'campus', 'modality', 'shift', 'status', 'graduation_year'],
-                );
-            }
-        );
-         return response()->json(new GetAllCollection(
-            resource: StudentResource::collection($query['collection']),
-            total: $query['total'],
-            pages: $query['pages']
-        ));
-    }
-
-    public function uploadBulk(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255',
             'document' => [
                 'required',
                 'file',
-                // Allow xlsx, csv, and occasionally txt (since some systems read CSVs as txt)
-                'mimes:xlsx,csv,txt',
-                // Explicitly allow the exact MIME types for Excel and CSVs
-                'mimetypes:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/csv,application/excel,application/vnd.ms-excel,application/vnd.msexcel'
+                'mimes:docx',
+                'mimetypes:application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             ]
         ]);
 
-        $path = $request->file('document')->store('imports');
+        $file = $request->file('document');
+        $path = $file->store('templates');
 
-        // Mandamos la ruta al Job en Redis
-        ProcessStudentBulkJob::dispatch($path);
+        $certificate = Certificate::create([
+            'name' => $request->name,
+            'code' => strtoupper($request->code), // Mantenemos mayúsculas por orden
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $path
+        ]);
 
         return response()->json([
-            'message' => 'La carga masiva de estudiantes ha comenzado en segundo plano.'
-        ], 202);
+            'message' => 'Plantilla guardada correctamente.',
+            'data' => $certificate
+        ], 201);
+    }
+
+    // Actualizar plantilla y/o reemplazar archivo
+    public function update(Request $request, Certificate $certificate)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255',
+            'document' => [
+                'nullable', // Es opcional porque puede que solo quiera editar el nombre/código
+                'file',
+                'mimes:docx',
+                'mimetypes:application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]
+        ]);
+
+        $certificate->name = $request->name;
+        $certificate->code = strtoupper($request->code);
+
+        // Si el usuario subió un nuevo archivo para reemplazar el viejo
+        if ($request->hasFile('document')) {
+            // 1. Borramos el archivo viejo del servidor
+            if (Storage::exists($certificate->file_path)) {
+                Storage::delete($certificate->file_path);
+            }
+
+            // 2. Guardamos el nuevo archivo
+            $file = $request->file('document');
+            $certificate->file_path = $file->store('templates');
+            $certificate->file_name = $file->getClientOriginalName();
+        }
+
+        $certificate->save();
+
+        return response()->json([
+            'message' => 'Plantilla actualizada correctamente.',
+            'data' => $certificate
+        ]);
+    }
+
+    public function download(Certificate $certificate)
+    {
+        if (!Storage::exists($certificate->file_path)) {
+            return response()->json(['message' => 'Archivo no encontrado'], 404);
+        }
+
+        // Devuelve el archivo físico
+        return Storage::download($certificate->file_path, $certificate->file_name);
     }
 
     // 2. Generación Individual desde el Menú 3
-    public function generateSingle(Request $request)
+    public function generateSingle(Request $request): JsonResponse
     {
         $request->validate(['student_code' => 'required|exists:students,student_code']);
 
@@ -97,7 +127,7 @@ class CertificateController extends Controller
     }
 
     // 3. Endpoint de Validación Pública (QR)
-    public function verify(string $trackingCode)
+    public function verify(string $trackingCode): JsonResponse
     {
         $certificate = Certificate::with('student')->where('tracking_code', $trackingCode)->firstOrFail();
 
