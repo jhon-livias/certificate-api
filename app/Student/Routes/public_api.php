@@ -1,6 +1,10 @@
 <?php
 
-use App\Student\Controllers\CertificateController;
+use App\Student\Controllers\ValidationController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/verify/{tracking_code}', [CertificateController::class, 'verify']);
+
+Route::controller(ValidationController::class)->group(function() {
+    Route::post('/public/validate-certificate', 'validateCertificate');
+    Route::get('/public/download-certificate/{trackingCode}', 'downloadValidated');
+});

@@ -11,7 +11,6 @@ use App\Student\Models\Student;
 use App\Student\Resources\StudentResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 class StudentController extends Controller
 {
@@ -22,10 +21,8 @@ class StudentController extends Controller
 
     public function student(string $code): JsonResponse
     {
-        $student = Cache::remember("student_{$code}", now()->addHours(24), function () use ($code) {
-            return Student::where('student_code', $code)->firstOrFail();
-        });
-        return response()->json(['data' => $student]);
+        $student = Student::where('student_code', $code)->firstOrFail();;
+        return response()->json(new StudentResource($student));
     }
 
     public function students(GetAllRequest $request): JsonResponse
