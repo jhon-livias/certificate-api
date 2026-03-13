@@ -31,7 +31,7 @@ class StudentController extends Controller
             request: $request,
             entityName: 'Student',
             modelName: 'Student',
-            columnSearch: ['id', 'student_code', 'document_number', 'full_name', 'gender', 'email', 'phone', 'address', 'admission_mode', 'program', 'campus', 'modality', 'shift', 'status', 'graduation_year'],
+            columnSearch: ['id', 'student_code', 'document_number', 'full_name', 'program', 'modality'],
         );
 
         return response()->json(new GetAllCollection(
