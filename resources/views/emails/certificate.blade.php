@@ -15,10 +15,15 @@
         <div class="qr-box">
             <h3 style="color: #1e40af; margin-top: 0;">Validación y Descarga Segura</h3>
             <p style="font-size: 14px;">Escanee este código QR para validar la autenticidad de su documento en el portal oficial de la UPRIT.</p>
-
+            
             <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ urlencode($validationUrl) }}" alt="QR Code de Validación">
+            
+            <p style="font-size: 13px; margin-top: 15px; color: #475569;">
+                O haga clic en el siguiente enlace de validación:<br>
+                <a href="{{ $validationUrl }}" style="color: #2563eb; font-weight: bold; word-break: break-all;">{{ $validationUrl }}</a>
+            </p>
 
-            <p style="font-size: 12px; margin-bottom: 0;"><strong>Código de Constancia:</strong> {{ $issuedCertificate->certificate_code }}</p>
+            <p style="font-size: 12px; margin-bottom: 0; margin-top: 15px;"><strong>Código de Constancia:</strong> {{ $issuedCertificate->certificate_code }}</p>
         </div>
 
         <div class="footer">
