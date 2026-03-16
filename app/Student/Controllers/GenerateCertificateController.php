@@ -3,12 +3,11 @@
 namespace App\Student\Controllers;
 
 use App\Shared\Foundation\Controllers\Controller;
-use App\Student\Mail\CertificateDispatched;
+use App\Student\Jobs\SendCertificateEmailJob;
 use App\Student\Models\Certificate;
 use App\Student\Models\IssuedCertificate;
 use App\Student\Models\Student;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -124,16 +123,16 @@ class GenerateCertificateController extends Controller
 
         $student = Student::where('student_code', $issuedCertificate->student_code)->first();
 
-        $mail = Mail::to($request->email);
-
-        if (!empty($request->cc_emails)) {
-            $mail->cc($request->cc_emails);
-        }
-
-        $mail->send(new CertificateDispatched($student, $issuedCertificate, $request->body));
+        SendCertificateEmailJob::dispatch(
+            $student,
+            $issuedCertificate,
+            $request->email,
+            $request->cc_emails,
+            $request->body
+        );
 
         return response()->json([
-            'message' => 'Correo enviado exitosamente al estudiante.'
-        ]);
+            'message' => 'El envío de correo se ha puesto en cola exitosamente.'
+        ], 202);
     }
 }
