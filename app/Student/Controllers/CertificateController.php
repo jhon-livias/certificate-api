@@ -95,4 +95,20 @@ class CertificateController extends Controller
 
         return Storage::download($certificate->file_path, $certificate->file_name);
     }
+
+    public function destroy(Certificate $certificate)
+    {
+        // 1. Verificamos si el archivo físico existe en el servidor y lo borramos
+        if (Storage::exists($certificate->file_path)) {
+            Storage::delete($certificate->file_path);
+        }
+
+        // 2. Borramos el registro de la base de datos de PostgreSQL
+        $certificate->delete();
+
+        // 3. Le respondemos a Angular que todo salió bien
+        return response()->json([
+            'message' => 'Plantilla y archivo eliminados correctamente.'
+        ]);
+    }
 }

@@ -14,8 +14,9 @@ Route::controller(StudentController::class)->group(function() {
 Route::controller(CertificateController::class)->group(function() {
     Route::post('/certificates', 'store');
     Route::post('/certificates/{certificate}', 'update');
-    Route::get('/certificates', 'index');
+    Route::delete('/certificates/{certificate}', 'destroy');
     Route::get('/certificates/{certificate}/download', 'download');
+    Route::get('/certificates', 'index');
 });
 
 Route::controller(GenerateCertificateController::class)->group(function() {
