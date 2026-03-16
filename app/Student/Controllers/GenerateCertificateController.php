@@ -68,9 +68,9 @@ class GenerateCertificateController extends Controller
 
         // Fechas y otros
         // Aquí puedes recibir el semestre por $request si quieres que el usuario lo escriba en el Front
-        $processor->setValue('START_SEMESTER', $request->input('start_semester', '2025-I'));
-        $processor->setValue('CURRENT_SEMESTER', $request->input('current_semester', '2025-II'));
-        $processor->setValue('START_DATE', $request->input('start_date', '12 de Abril de 2025'));
+        $processor->setValue('START_SEMESTER', $request->input('start_semester', 'NO_DATA'));
+        $processor->setValue('CURRENT_SEMESTER', $request->input('current_semester', 'NO_DATA'));
+        $processor->setValue('START_DATE', $request->input('start_date', 'NO_DATA'));
 
         // Fecha actual en español
         Carbon::setLocale('es');
