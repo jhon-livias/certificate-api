@@ -12,6 +12,7 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Exception;
 
 class GenerateCertificateController extends Controller
 {
@@ -74,7 +75,7 @@ class GenerateCertificateController extends Controller
             $validationUrl = "https://constancias.uprit.edu.pe/validar/" . $trackingCode;
 
             // Usamos la API de Google Charts (súper rápida y estable)
-            $qrUrl = "https://chart.googleapis.com/chart?chs=120x120&cht=qr&chl=" . urlencode($validationUrl);
+            $qrUrl = "https://quickchart.io/qr?size=150&text=" . urlencode($validationUrl);
             $qrTempPath = storage_path('app/temp_qr_' . time() . '.png');
             
             try {
