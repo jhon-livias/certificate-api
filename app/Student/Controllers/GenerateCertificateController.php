@@ -90,7 +90,8 @@ class GenerateCertificateController extends Controller
                         'path' => $qrTempPath,
                         'width' => 100,
                         'height' => 100,
-                        'ratio' => false
+                        'ratio' => false,
+                        'align' => 'right',
                     ]);
                 } else {
                     $processor->setValue('QR_CODE', 'API_RECHAZADA'); 
