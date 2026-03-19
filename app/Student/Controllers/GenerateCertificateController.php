@@ -69,24 +69,33 @@ class GenerateCertificateController extends Controller
             $processor->setValue('FECHA_EMISION', ucfirst($fechaEmision));
 
             // --- MAGIA DEL QR BLINDADA ---
+           // --- 5. MAGIA DEL CÓDIGO QR (LISTO PARA PRODUCCIÓN) ---
             $trackingCode = Str::random(10); 
             $validationUrl = "https://constancias.uprit.edu.pe/validar/" . $trackingCode;
 
-            // 1. Usamos la API de Google con tamaño exacto de 120x120 pixeles
+            // Usamos la API de Google Charts (súper rápida y estable)
             $qrUrl = "https://chart.googleapis.com/chart?chs=120x120&cht=qr&chl=" . urlencode($validationUrl);
             $qrTempPath = storage_path('app/temp_qr_' . time() . '.png');
             
-            // 2. Descargamos la imagen cruda
-            $imgData = @file_get_contents($qrUrl);
-            
-            if ($imgData) {
-                file_put_contents($qrTempPath, $imgData);
+            try {
+                // En tu VPS esto funcionará perfecto porque Linux sí confía en el SSL
+                $response = \Illuminate\Support\Facades\Http::get($qrUrl);
                 
-                // 3. LA CLAVE: Le pasamos SOLO la ruta cruda (sin arrays de width/height)
-                $processor->setImageValue('QR_CODE', $qrTempPath);
-            } else {
-                // Si por alguna razón el VPS no tiene internet, al menos borramos la variable
-                $processor->setValue('QR_CODE', 'NADA'); 
+                if ($response->successful()) {
+                    file_put_contents($qrTempPath, $response->body());
+                    
+                    // Inyectamos la imagen
+                    $processor->setImageValue('QR_CODE', [
+                        'path' => $qrTempPath,
+                        'width' => 100,
+                        'height' => 100,
+                        'ratio' => false
+                    ]);
+                } else {
+                    $processor->setValue('QR_CODE', 'API_RECHAZADA'); 
+                }
+            } catch (\Exception $e) {
+                $processor->setValue('QR_CODE', 'ERROR_DE_RED_VPS');
             }
 
             // 6. Guardar el nuevo documento fusionado
