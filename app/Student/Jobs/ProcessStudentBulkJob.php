@@ -23,63 +23,66 @@ class ProcessStudentBulkJob implements ShouldQueue
 
     public function handle(): void
     {
-        /// 1. Usamos Storage::exists() en lugar del file_exists() nativo de PHP
         if (!Storage::exists($this->filePath)) {
             Log::error("El archivo no se guardó en el disco local: {$this->filePath}");
             return;
         }
 
-        // 2. Dejamos que Laravel calcule la ruta absoluta exacta para tu sistema operativo
         $fullPath = Storage::path($this->filePath);
-
         Log::info("Excel encontrado exitosamente en: " . $fullPath);
 
+        // Convertimos el Excel a array
         $rows = Excel::toArray(new \stdClass, $fullPath)[0];
 
         DB::transaction(function () use ($rows) {
             foreach ($rows as $index => $row) {
                 $filaExcel = $index + 1;
-                if ($index < 6) continue;
+                
+                // Saltamos SOLO la fila 1 porque ahora es una plantilla limpia con encabezados
+                if ($index < 1) continue;
 
-                $documentNumber = trim((string)($row[5] ?? ''));
-                $fullName = trim($row[2] ?? '');
-
-                if (empty($documentNumber) || empty($fullName)) continue;
-
-                $studentCode = trim(!empty($row[35]) ? (string)$row[35] : (string)($row[8] ?? ''));
-
-                if (empty($studentCode)) {
-                    Log::warning("Fila {$filaExcel} ignorada: Sin código.");
+                // --- MAPEO DE COLUMNAS (Ajusta los números según tu template.xlsx) ---
+                // 0 = Columna A, 1 = Columna B, 2 = Columna C, etc.
+                
+                $documentNumber = trim((string)($row[0] ?? '')); // DNI
+                $studentCode    = trim((string)($row[1] ?? '')); // Código
+                $fullName       = trim((string)($row[2] ?? '')); // Nombre Completo
+                
+                // Si la fila está vacía, la ignoramos
+                if (empty($documentNumber) || empty($studentCode) || empty($fullName)) {
+                    if (!empty($documentNumber) || !empty($studentCode)) {
+                        Log::warning("Fila {$filaExcel} ignorada: Faltan datos clave (DNI, Código o Nombre).");
+                    }
                     continue;
                 }
 
                 try {
                     Student::updateOrCreate(
-                        ['document_number' => $documentNumber],
+                        ['document_number' => $documentNumber], // Busca por DNI
                         [
                             'student_code'    => $studentCode,
                             'full_name'       => $fullName,
-                            'gender'          => strtoupper(trim($row[3] ?? '')),
-                            'email'           => trim($row[11] ?? ''),
-                            'phone'           => trim($row[10] ?? ''),
-                            'address'         => trim($row[6] ?? ''),
-                            'admission_mode'  => trim($row[1] ?? ''),
-                            'program'         => trim($row[20] ?? ''),
-                            'campus'          => trim($row[23] ?? ''),
-                            'modality'        => trim($row[24] ?? ''),
-                            'shift'           => trim($row[25] ?? ''),
-                            'status'          => trim($row[26] ?? ''),
-                            'graduation_year' => trim($row[37] ?? ''),
+                            'gender'          => strtoupper(trim((string)($row[3] ?? ''))),
+                            'email'           => trim((string)($row[4] ?? '')),
+                            'phone'           => trim((string)($row[5] ?? '')),
+                            'address'         => trim((string)($row[6] ?? '')),
+                            'admission_mode'  => trim((string)($row[7] ?? '')),
+                            'program'         => trim((string)($row[8] ?? '')),
+                            'campus'          => trim((string)($row[9] ?? '')),
+                            'modality'        => trim((string)($row[10] ?? '')),
+                            'shift'           => trim((string)($row[11] ?? '')),
+                            'status'          => trim((string)($row[12] ?? '')),
+                            'graduation_year' => trim((string)($row[13] ?? '')),
                         ]
                     );
 
+                    // Limpiamos la caché de este estudiante si existía
                     Cache::forget("student_{$studentCode}");
 
                 } catch (QueryException $e) {
                     if ($e->getCode() == '23505') {
                         Log::warning("Fila {$filaExcel} conflicto: Código '{$studentCode}' duplicado.");
                     } else {
-                        // ¡ESTO FALTABA! Si falla por otra cosa (ej. string muy largo), ahora sí lo verás en el log
                         Log::error("Fila {$filaExcel} ERROR SQL: " . $e->getMessage());
                     }
                 } catch (\Exception $e) {
@@ -88,6 +91,7 @@ class ProcessStudentBulkJob implements ShouldQueue
             }
         });
 
+        // Borramos el archivo temporal cuando termina
         Storage::delete($this->filePath);
     }
 }

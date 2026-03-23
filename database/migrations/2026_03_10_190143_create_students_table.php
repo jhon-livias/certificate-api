@@ -21,25 +21,34 @@ return new class extends Migration {
             $table->foreignId('deleter_user_id')->nullable()->constrained('users');
             $table->boolean('is_deleted')->default(false);
 
-            // Identidad
-            $table->string('student_code')->unique()->comment('Columna 35 o 8');
-            $table->string('document_number')->unique()->comment('Columna 5');
-            $table->string('full_name')->comment('Columna 2');
-            $table->string('gender', 1)->nullable()->comment('Columna 3 (M/F)');
+            // Identidad (Las 3 primeras columnas del Excel)
+            $table->string('full_name')->comment('Columna A: FULL_NAME');
+            $table->string('document_number')->unique()->comment('Columna B: DNI');
+            $table->string('student_code')->unique()->comment('Columna C: STUDENT_CODE');
 
-            // Contacto
-            $table->string('email')->nullable()->comment('Columna 11');
-            $table->string('phone')->nullable()->comment('Columna 10');
-            $table->string('address')->nullable()->comment('Columna 6');
+            // Información Académica Base
+            $table->string('program')->nullable()->comment('Columna D: PROGRAM');
+            $table->string('modality')->nullable()->comment('Columna E: MODALITY');
+            $table->string('faculty')->nullable()->comment('Columna H: FACULTY');
 
-            // Académico (Variables fuertes para las constancias)
-            $table->string('admission_mode')->nullable()->comment('Columna 1');
-            $table->string('program')->nullable()->comment('Columna 20');
-            $table->string('campus')->nullable()->comment('Columna 23');
-            $table->string('modality')->nullable()->comment('Columna 24');
-            $table->string('shift')->nullable()->comment('Columna 25 (Turno)');
-            $table->string('status')->nullable()->comment('Columna 26 (Situacion)');
-            $table->string('graduation_year')->nullable()->comment('Columna 37');
+            // Fechas y Semestres
+            $table->string('start_semester')->nullable()->comment('Columna F: START_SEMESTER');
+            $table->date('start_date')->nullable()->comment('Columna G: START_DATE'); // Tipo DATE
+            $table->string('academic_cycle')->nullable()->comment('Columna L: ACADEMIC_CYCLE');
+            $table->string('current_semester')->nullable()->comment('Columna M: CURRENT_SEMESTER');
+
+            // Egreso y Notas
+            $table->string('graduation_semester')->nullable()->comment('Columna I: GRADUATION_SEMESTER');
+            $table->date('graduation_date')->nullable()->comment('Columna J: GRADUATION_DATE'); // Tipo DATE
+            $table->integer('credits')->nullable()->comment('Columna K: CREDITS'); // Tipo INT
+
+            // Campos extra (Los mantenemos nullables por si el SGA los manda por API en el futuro)
+            $table->string('gender', 1)->nullable();
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('address')->nullable();
+            $table->string('admission_mode')->nullable();
+            $table->string('status')->nullable();
         });
     }
 
