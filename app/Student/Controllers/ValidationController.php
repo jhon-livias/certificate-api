@@ -28,9 +28,7 @@ class ValidationController extends Controller
         }
 
         // Buscamos si el DNI coincide con el estudiante dueño de esa constancia
-        $student = Student::where('student_code', $cert->student_code)
-                    ->where('document_number', $request->dni)
-                    ->first();
+        $student = Student::where('dni', $request->dni)->first();
 
         if (!$student) {
             return response()->json(['message' => 'El DNI no corresponde al titular de esta constancia.'], 403);
@@ -53,8 +51,7 @@ class ValidationController extends Controller
                     ->where('certificate_code', $request->query('code'))
                     ->firstOrFail();
 
-        $student = Student::where('student_code', $cert->student_code)
-                    ->where('document_number', $request->query('dni'))
+        $student = Student::where('dni', $request->query('dni'))
                     ->firstOrFail();
 
         $absolutePath = Storage::path($cert->file_path);

@@ -51,7 +51,7 @@ class ProcessStudentBulkJob implements ShouldQueue
 
                 try {
                     Student::updateOrCreate(
-                        ['document_number' => $dni],
+                        ['dni' => $dni],
                         [
                             'name'          => trim((string)($row[0] ?? '')),
                             'surname'       => trim((string)($row[1] ?? '')),

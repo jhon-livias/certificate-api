@@ -284,11 +284,8 @@ return [
         'winner'                   => 'ganador',
         'work'                     => 'trabajo',
         'year'                     => 'año',
-        'document_number'          => 'DNI',
-        'student_code'             => 'Código de Estudiante',
-        'full_name'                => 'Nombres Completos',
+        'dni'          => 'DNI',
         'program'                  => 'Programa/Carrera',
-        'email'                    => 'Correo Electrónico',
         'document'                 => 'Archivo Excel',
     ],
 ];

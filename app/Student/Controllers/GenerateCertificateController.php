@@ -20,7 +20,7 @@ class GenerateCertificateController extends Controller
     public function generate(Request $request)
     {
         $request->validate([
-            'student_code' => 'required|exists:students,student_code',
+            'dni' => 'required|exists:students,dni',
             'certificate_id' => 'required|exists:certificates,id',
             'certificate_code' => 'required|string',
         ]);
@@ -35,7 +35,7 @@ class GenerateCertificateController extends Controller
                 ]);
             }
 
-            $student = Student::where('student_code', $request->student_code)->firstOrFail();
+            $student = Student::where('dni', $request->dni)->firstOrFail();
             $certificate = Certificate::findOrFail($request->certificate_id);
 
             if (!Storage::exists($certificate->file_path)) {
@@ -45,30 +45,16 @@ class GenerateCertificateController extends Controller
             $certificatePath = Storage::path($certificate->file_path);
             $processor = new TemplateProcessor($certificatePath);
 
-            $isMale = strtoupper($student->gender) === 'M';
-
             // Textos
-            $processor->setValue('CODIGO_CONSTANCIA', $request->certificate_code);
-            $processor->setValue('TITLE', $isMale ? 'el señor' : 'la señorita');
-            $processor->setValue('FULL_NAME', $student->full_name);
-            $processor->setValue('DNI', $student->document_number);
-            $processor->setValue('STUDENT_CODE', $student->student_code);
+            $processor->setValue('SURNAME', $student->surname);
+            $processor->setValue('NAME', $student->name);
+            $processor->setValue('DNI', $student->dni);
             $processor->setValue('PROGRAM', $student->program);
-            $processor->setValue('MODALITY', $student->modality);
-            $processor->setValue('FACULTY', $student->campus);
-
-            $processor->setValue('ARTICLE', $isMale ? 'el' : 'la');
-            $processor->setValue('REFERRED', $isMale ? 'referido' : 'referida');
-            $processor->setValue('MATRICULADO', $isMale ? 'matriculado' : 'matriculada');
-            $processor->setValue('DEL_INTERESADO', $isMale ? 'del interesado' : 'de la interesada');
-
-            $processor->setValue('START_SEMESTER', $request->input('start_semester', 'NO_DATA'));
-            $processor->setValue('CURRENT_SEMESTER', $request->input('current_semester', 'NO_DATA'));
-            $processor->setValue('START_DATE', $request->input('start_date', 'NO_DATA'));
+            $processor->setValue('PERIOD', $student->period);
 
             Carbon::setLocale('es');
             $fechaEmision = Carbon::now()->translatedFormat('d \d\e F \d\e\l Y');
-            $processor->setValue('FECHA_EMISION', ucfirst($fechaEmision));
+            $processor->setValue('DATE', ucfirst($fechaEmision));
 
             // --- MAGIA DEL QR BLINDADA ---
            // --- 5. MAGIA DEL CÓDIGO QR (LISTO PARA PRODUCCIÓN) ---
@@ -102,7 +88,7 @@ class GenerateCertificateController extends Controller
             }
 
             // 6. Guardar el nuevo documento fusionado
-            $fileName = 'CONSTANCIA_' . $student->document_number . '_' . time() . '.docx';
+            $fileName = 'CONSTANCIA_' . $student->dni . '_' . time() . '.docx';
             $relativeSavePath = 'generated_certificates/' . $fileName;
 
             Storage::makeDirectory('generated_certificates');
@@ -116,7 +102,7 @@ class GenerateCertificateController extends Controller
 
             $issued = IssuedCertificate::create([
                 'certificate_id' => $certificate->id,
-                'student_code' => $student->student_code,
+                'student_code' => $student->dni,
                 'certificate_code' => $request->certificate_code,
                 'file_path' => $relativeSavePath,
                 'tracking_code' => $trackingCode
@@ -161,7 +147,7 @@ class GenerateCertificateController extends Controller
             'body' => 'required|string'
         ]);
 
-        $student = Student::where('student_code', $issuedCertificate->student_code)->first();
+        $student = Student::where('dni', $issuedCertificate->student_code)->first();
 
         SendCertificateEmailJob::dispatch(
             $student,
