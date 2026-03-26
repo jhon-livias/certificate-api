@@ -21,7 +21,7 @@ class StudentController extends Controller
 
     public function student(string $code): JsonResponse
     {
-        $student = Student::where('student_code', $code)->firstOrFail();;
+        $student = Student::where('dni', $code)->firstOrFail();
         return response()->json(new StudentResource($student));
     }
 
@@ -31,7 +31,7 @@ class StudentController extends Controller
             request: $request,
             entityName: 'Student',
             modelName: 'Student',
-            columnSearch: ['id', 'student_code', 'document_number', 'full_name', 'program', 'modality'],
+            columnSearch: ['id', 'dni', 'name', 'surname', 'program_type', 'program', 'period', 'email'],
         );
 
         return response()->json(new GetAllCollection(
@@ -47,16 +47,13 @@ class StudentController extends Controller
             'document' => [
                 'required',
                 'file',
-                // Allow xlsx, csv, and occasionally txt (since some systems read CSVs as txt)
                 'mimes:xlsx,csv,txt',
-                // Explicitly allow the exact MIME types for Excel and CSVs
                 'mimetypes:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/csv,application/excel,application/vnd.ms-excel,application/vnd.msexcel'
             ]
         ]);
 
         $path = $request->file('document')->store('imports');
 
-        // Mandamos la ruta al Job en Redis
         ProcessStudentBulkJob::dispatch($path);
 
         return response()->json([

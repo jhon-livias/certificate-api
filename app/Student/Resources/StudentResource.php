@@ -8,20 +8,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /** * @mixin Student
  * @property int $id
- * @property string $student_code
- * @property string $document_number
- * @property string $full_name
- * @property string $gender
- * @property string $email
- * @property string $phone
- * @property string $address
- * @property string $admission_mode
+ * @property string $name
+ * @property string $surname
+ * @property string $dni
+ * @property string $program_type
  * @property string $program
- * @property string $campus
- * @property string $modality
- * @property string $shift
+ * @property string $period
+ * @property string $email
  * @property string $status
- * @property int $graduation_year
  */
 class StudentResource extends JsonResource
 {
@@ -34,20 +28,13 @@ class StudentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'studentCode' => $this->student_code,
-            'documentNumber' => $this->document_number,
-            'fullName' => $this->full_name,
-            'gender' => $this->gender,
-            'email' => $this->email,
-            'phone' => $this->phone,
-            'address' => $this->address,
-            'admissionMode' => $this->admission_mode,
+            'name' => $this->name,
+            'surname' => $this->surname,
+            'dni' => $this->dni,
+            'programType' => $this->program_type,
             'program' => $this->program,
-            'campus' => $this->campus,
-            'modality' => $this->modality,
-            'shift' => $this->shift,
+            'email' => $this->email,
             'status' => $this->status,
-            'graduationYear' => $this->graduation_year,
         ];
     }
 }

@@ -37,51 +37,36 @@ class ProcessStudentBulkJob implements ShouldQueue
         DB::transaction(function () use ($rows) {
             foreach ($rows as $index => $row) {
                 $filaExcel = $index + 1;
-                
-                // Saltamos SOLO la fila 1 porque ahora es una plantilla limpia con encabezados
+
                 if ($index < 1) continue;
 
-                // --- MAPEO DE COLUMNAS (Ajusta los números según tu template.xlsx) ---
-                // 0 = Columna A, 1 = Columna B, 2 = Columna C, etc.
-                
-                $documentNumber = trim((string)($row[0] ?? '')); // DNI
-                $studentCode    = trim((string)($row[1] ?? '')); // Código
-                $fullName       = trim((string)($row[2] ?? '')); // Nombre Completo
-                
-                // Si la fila está vacía, la ignoramos
-                if (empty($documentNumber) || empty($studentCode) || empty($fullName)) {
-                    if (!empty($documentNumber) || !empty($studentCode)) {
-                        Log::warning("Fila {$filaExcel} ignorada: Faltan datos clave (DNI, Código o Nombre).");
+                $dni = trim((string)($row[2] ?? ''));
+
+                if (empty($dni)) {
+                    if (!empty($dni)) {
+                        Log::warning("Fila {$filaExcel} ignorada: Faltan datos clave (DNI).");
                     }
                     continue;
                 }
 
                 try {
                     Student::updateOrCreate(
-                        ['document_number' => $documentNumber], // Busca por DNI
+                        ['document_number' => $dni],
                         [
-                            'student_code'    => $studentCode,
-                            'full_name'       => $fullName,
-                            'gender'          => strtoupper(trim((string)($row[3] ?? ''))),
-                            'email'           => trim((string)($row[4] ?? '')),
-                            'phone'           => trim((string)($row[5] ?? '')),
-                            'address'         => trim((string)($row[6] ?? '')),
-                            'admission_mode'  => trim((string)($row[7] ?? '')),
-                            'program'         => trim((string)($row[8] ?? '')),
-                            'campus'          => trim((string)($row[9] ?? '')),
-                            'modality'        => trim((string)($row[10] ?? '')),
-                            'shift'           => trim((string)($row[11] ?? '')),
-                            'status'          => trim((string)($row[12] ?? '')),
-                            'graduation_year' => trim((string)($row[13] ?? '')),
+                            'name'          => trim((string)($row[0] ?? '')),
+                            'surname'       => trim((string)($row[1] ?? '')),
+                            'program_type'  => trim((string)($row[3] ?? '')),
+                            'program'       => trim((string)($row[4] ?? '')),
+                            'period'        => trim((string)($row[5] ?? '')),
+                            'email'         => trim((string)($row[6] ?? '')),
+                            'status'        => trim((string)($row[7] ?? '')),
                         ]
                     );
 
-                    // Limpiamos la caché de este estudiante si existía
-                    Cache::forget("student_{$studentCode}");
-
+                    Cache::forget("student_{$dni}");
                 } catch (QueryException $e) {
                     if ($e->getCode() == '23505') {
-                        Log::warning("Fila {$filaExcel} conflicto: Código '{$studentCode}' duplicado.");
+                        Log::warning("Fila {$filaExcel} conflicto: DNI '{$dni}' duplicado.");
                     } else {
                         Log::error("Fila {$filaExcel} ERROR SQL: " . $e->getMessage());
                     }
@@ -91,7 +76,6 @@ class ProcessStudentBulkJob implements ShouldQueue
             }
         });
 
-        // Borramos el archivo temporal cuando termina
         Storage::delete($this->filePath);
     }
 }

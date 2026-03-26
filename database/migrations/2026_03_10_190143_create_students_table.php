@@ -22,32 +22,13 @@ return new class extends Migration {
             $table->boolean('is_deleted')->default(false);
 
             // Identidad (Las 3 primeras columnas del Excel)
-            $table->string('full_name')->comment('Columna A: FULL_NAME');
-            $table->string('document_number')->unique()->comment('Columna B: DNI');
-            $table->string('student_code')->unique()->comment('Columna C: STUDENT_CODE');
-
-            // Información Académica Base
-            $table->string('program')->nullable()->comment('Columna D: PROGRAM');
-            $table->string('modality')->nullable()->comment('Columna E: MODALITY');
-            $table->string('faculty')->nullable()->comment('Columna H: FACULTY');
-
-            // Fechas y Semestres
-            $table->string('start_semester')->nullable()->comment('Columna F: START_SEMESTER');
-            $table->date('start_date')->nullable()->comment('Columna G: START_DATE'); // Tipo DATE
-            $table->string('academic_cycle')->nullable()->comment('Columna L: ACADEMIC_CYCLE');
-            $table->string('current_semester')->nullable()->comment('Columna M: CURRENT_SEMESTER');
-
-            // Egreso y Notas
-            $table->string('graduation_semester')->nullable()->comment('Columna I: GRADUATION_SEMESTER');
-            $table->date('graduation_date')->nullable()->comment('Columna J: GRADUATION_DATE'); // Tipo DATE
-            $table->integer('credits')->nullable()->comment('Columna K: CREDITS'); // Tipo INT
-
-            // Campos extra (Los mantenemos nullables por si el SGA los manda por API en el futuro)
-            $table->string('gender', 1)->nullable();
-            $table->string('email')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('address')->nullable();
-            $table->string('admission_mode')->nullable();
+            $table->string('name')->comment('Columna A: NOMBRE');
+            $table->string('surname')->comment('Columna B: APELLIDO');
+            $table->string('dni')->comment('Columna C: DNI');
+            $table->string('program_type')->comment('Columna D: TIPO DE PROGRAMA');
+            $table->string('program')->comment('Columna E: PROGRAMA');
+            $table->string('period')->comment('Columna F: PERIODO');
+            $table->string('email')->comment('Columna G: CORREO');
             $table->string('status')->nullable();
         });
     }
