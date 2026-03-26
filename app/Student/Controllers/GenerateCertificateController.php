@@ -8,6 +8,7 @@ use App\Student\Models\Certificate;
 use App\Student\Models\IssuedCertificate;
 use App\Student\Models\Student;
 use Illuminate\Http\Request;
+use Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,9 +20,9 @@ class GenerateCertificateController extends Controller
     public function generate(Request $request)
     {
         $request->validate([
-            'student_code' => 'required|exists:students,student_code', 
+            'student_code' => 'required|exists:students,student_code',
             'certificate_id' => 'required|exists:certificates,id',
-            'certificate_code' => 'required|string', 
+            'certificate_code' => 'required|string',
         ]);
 
         try {
@@ -54,7 +55,7 @@ class GenerateCertificateController extends Controller
             $processor->setValue('STUDENT_CODE', $student->student_code);
             $processor->setValue('PROGRAM', $student->program);
             $processor->setValue('MODALITY', $student->modality);
-            $processor->setValue('FACULTY', $student->campus); 
+            $processor->setValue('FACULTY', $student->campus);
 
             $processor->setValue('ARTICLE', $isMale ? 'el' : 'la');
             $processor->setValue('REFERRED', $isMale ? 'referido' : 'referida');
@@ -71,20 +72,20 @@ class GenerateCertificateController extends Controller
 
             // --- MAGIA DEL QR BLINDADA ---
            // --- 5. MAGIA DEL CÓDIGO QR (LISTO PARA PRODUCCIÓN) ---
-            $trackingCode = Str::random(10); 
+            $trackingCode = Str::random(10);
             $validationUrl = "https://constancias.uprit.edu.pe/validar/" . $trackingCode;
 
             // Usamos la API de Google Charts (súper rápida y estable)
             $qrUrl = "https://quickchart.io/qr?size=150&text=" . urlencode($validationUrl);
             $qrTempPath = storage_path('app/temp_qr_' . time() . '.png');
-            
+
             try {
                 // En tu VPS esto funcionará perfecto porque Linux sí confía en el SSL
                 $response = \Illuminate\Support\Facades\Http::get($qrUrl);
-                
+
                 if ($response->successful()) {
                     file_put_contents($qrTempPath, $response->body());
-                    
+
                     // Inyectamos la imagen
                     $processor->setImageValue('QR_CODE', [
                         'path' => $qrTempPath,
@@ -94,7 +95,7 @@ class GenerateCertificateController extends Controller
                         'align' => 'right',
                     ]);
                 } else {
-                    $processor->setValue('QR_CODE', 'API_RECHAZADA'); 
+                    $processor->setValue('QR_CODE', 'API_RECHAZADA');
                 }
             } catch (\Exception $e) {
                 $processor->setValue('QR_CODE', 'ERROR_DE_RED_VPS');
@@ -130,7 +131,7 @@ class GenerateCertificateController extends Controller
         } catch (Exception $e) {
             // Si algo falla, lo guardamos en el log y se lo avisamos a Angular
             Log::error("Error generando constancia con QR: " . $e->getMessage());
-            
+
             // Aseguramos borrar el QR si falló a la mitad del proceso
             if (isset($qrTempPath) && file_exists($qrTempPath)) {
                 unlink($qrTempPath);
