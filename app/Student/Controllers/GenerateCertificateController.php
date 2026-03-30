@@ -8,12 +8,13 @@ use App\Student\Models\Certificate;
 use App\Student\Models\IssuedCertificate;
 use App\Student\Models\Student;
 use Illuminate\Http\Request;
-use Log;
-use PhpOffice\PhpWord\TemplateProcessor;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Exception;
+use setasign\Fpdi\Fpdi; // La librería maestra para leer y escribir PDFs
 
 class GenerateCertificateController extends Controller
 {
@@ -38,68 +39,93 @@ class GenerateCertificateController extends Controller
             $student = Student::where('dni', $request->dni)->firstOrFail();
             $certificate = Certificate::findOrFail($request->certificate_id);
 
+            // Validamos que la plantilla PDF exista
             if (!Storage::exists($certificate->file_path)) {
-                return response()->json(['message' => 'El archivo de la plantilla no existe.'], 404);
+                return response()->json(['message' => 'El archivo de la plantilla PDF no existe.'], 404);
             }
 
             $certificatePath = Storage::path($certificate->file_path);
-            $processor = new TemplateProcessor($certificatePath);
 
-            // Textos
-            $processor->setValue('SURNAME', $student->surname);
-            $processor->setValue('NAME', $student->name);
-            $processor->setValue('DNI', $student->dni);
-            $processor->setValue('PROGRAM', $student->program);
-            $processor->setValue('PERIOD', $student->period);
-
-            Carbon::setLocale('es');
-            $fechaEmision = Carbon::now()->translatedFormat('d \d\e F \d\e\l Y');
-            $processor->setValue('DATE', ucfirst($fechaEmision));
-
-            // --- MAGIA DEL QR BLINDADA ---
-           // --- 5. MAGIA DEL CÓDIGO QR (LISTO PARA PRODUCCIÓN) ---
+            // --- 1. PREPARAR EL CÓDIGO QR ---
             $trackingCode = Str::random(10);
             $validationUrl = "https://constancias.uprit.edu.pe/validar/" . $trackingCode;
-
-            // Usamos la API de Google Charts (súper rápida y estable)
+            
             $qrUrl = "https://quickchart.io/qr?size=150&text=" . urlencode($validationUrl);
             $qrTempPath = storage_path('app/temp_qr_' . time() . '.png');
 
             try {
-                // En tu VPS esto funcionará perfecto porque Linux sí confía en el SSL
-                $response = \Illuminate\Support\Facades\Http::get($qrUrl);
-
+                $response = Http::get($qrUrl);
                 if ($response->successful()) {
                     file_put_contents($qrTempPath, $response->body());
-
-                    // Inyectamos la imagen
-                    $processor->setImageValue('QR_CODE', [
-                        'path' => $qrTempPath,
-                        'width' => 100,
-                        'height' => 100,
-                        'ratio' => false,
-                        'align' => 'right',
-                    ]);
-                } else {
-                    $processor->setValue('QR_CODE', 'API_RECHAZADA');
                 }
             } catch (\Exception $e) {
-                $processor->setValue('QR_CODE', 'ERROR_DE_RED_VPS');
+                Log::error("Error descargando QR desde QuickChart: " . $e->getMessage());
             }
 
-            // 6. Guardar el nuevo documento fusionado
-            $fileName = 'CONSTANCIA_' . $student->dni . '_' . time() . '.docx';
-            $relativeSavePath = 'generated_certificates/' . $fileName;
+            // --- 2. MAGIA DE FPDI (ESCRIBIR SOBRE LA PLANTILLA PDF) ---
+            $pdf = new Fpdi();
+            
+            // Cargamos la plantilla original
+            $pdf->setSourceFile($certificatePath);
+            $templateId = $pdf->importPage(1);
 
+            // Agregamos una nueva página A4 Vertical ('P') o Horizontal ('L')
+            $pdf->AddPage('P', 'A4');
+            $pdf->useTemplate($templateId, 0, 0, 210, 297); // 210x297mm es el tamaño A4
+
+            // --- 3. DIBUJAR LOS TEXTOS EN COORDENADAS (X, Y) ---
+            // Nota: Se usa utf8_decode para que las tildes y las Ñ se impriman correctamente
+            
+            $pdf->SetTextColor(0, 0, 0); // Color Negro
+
+            // Nombres y Apellidos
+            $pdf->SetFont('Arial', 'B', 14); // B = Bold (Negrita), Tamaño 14
+            $pdf->SetXY(50, 100); // <-- AJUSTA ESTOS VALORES (Milímetros desde la izquierda, Milímetros desde arriba)
+            $pdf->Write(0, utf8_decode($student->name . ' ' . $student->surname));
+
+            $pdf->SetFont('Arial', '', 12); // Quitamos la negrita y bajamos tamaño a 12
+
+            // DNI
+            $pdf->SetXY(50, 115); // <-- Ajusta Y para bajar de renglón
+            $pdf->Write(0, utf8_decode($student->dni));
+
+            // Programa
+            $pdf->SetXY(50, 125); // <-- Ajusta Y
+            $pdf->Write(0, utf8_decode($student->program));
+
+            // Periodo
+            $pdf->SetXY(50, 135); // <-- Ajusta Y
+            $pdf->Write(0, utf8_decode($student->period));
+
+            // Fecha de Emisión
+            Carbon::setLocale('es');
+            $fechaEmision = Carbon::now()->translatedFormat('d \d\e F \d\e\l Y');
+            $pdf->SetXY(130, 200); // <-- Ajusta X e Y para ponerlo abajo a la derecha
+            $pdf->Write(0, utf8_decode(ucfirst($fechaEmision)));
+
+            // --- 4. INSERTAR EL CÓDIGO QR ---
+            if (file_exists($qrTempPath)) {
+                // Image(ruta, X, Y, Ancho_mm, Alto_mm)
+                // Ej: 150mm desde la izquierda, 230mm desde arriba, de 30x30 milímetros
+                $pdf->Image($qrTempPath, 150, 230, 30, 30); 
+            }
+
+            // --- 5. GUARDAR EL PDF FINAL ---
+            $fileName = 'CONSTANCIA_' . $student->dni . '_' . time() . '.pdf';
+            $relativeSavePath = 'generated_certificates/' . $fileName;
+            
             Storage::makeDirectory('generated_certificates');
             $absoluteSavePath = Storage::path($relativeSavePath);
-            $processor->saveAs($absoluteSavePath);
+            
+            // 'F' indica que se guarde como archivo en el disco
+            $pdf->Output('F', $absoluteSavePath); 
 
-            // Limpieza de servidor
+            // --- 6. LIMPIEZA DEL SERVIDOR ---
             if (file_exists($qrTempPath)) {
                 unlink($qrTempPath);
             }
 
+            // --- 7. REGISTRO EN LA BASE DE DATOS ---
             $issued = IssuedCertificate::create([
                 'certificate_id' => $certificate->id,
                 'student_code' => $student->dni,
@@ -109,16 +135,14 @@ class GenerateCertificateController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Constancia generada con éxito.',
+                'message' => 'Constancia generada y convertida a PDF con éxito.',
                 'data' => $issued,
                 'download_url' => url('/api/certificates/download-generated/' . $issued->id)
             ]);
 
         } catch (Exception $e) {
-            // Si algo falla, lo guardamos en el log y se lo avisamos a Angular
-            Log::error("Error generando constancia con QR: " . $e->getMessage());
+            Log::error("Error generando constancia FPDI: " . $e->getMessage());
 
-            // Aseguramos borrar el QR si falló a la mitad del proceso
             if (isset($qrTempPath) && file_exists($qrTempPath)) {
                 unlink($qrTempPath);
             }
@@ -129,7 +153,6 @@ class GenerateCertificateController extends Controller
         }
     }
 
-    // Método para descargar el archivo generado
     public function downloadGenerated(IssuedCertificate $issuedCertificate)
     {
         if (!Storage::exists($issuedCertificate->file_path)) {

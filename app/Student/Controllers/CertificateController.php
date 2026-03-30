@@ -32,12 +32,14 @@ class CertificateController extends Controller
             'document' => [
                 'required',
                 'file',
-                'mimes:docx',
-                'mimetypes:application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                'mimes:pdf', // <-- Cambiado de docx a pdf
+                'mimetypes:application/pdf' // <-- Mimetype oficial de los PDF
             ]
         ]);
 
         $file = $request->file('document');
+        
+        // El archivo se guardará en storage/app/templates
         $path = $file->store('templates');
 
         $certificate = Certificate::create([
@@ -48,7 +50,7 @@ class CertificateController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Plantilla guardada correctamente.',
+            'message' => 'Plantilla PDF guardada correctamente.',
             'data' => $certificate
         ], 201);
     }
@@ -59,10 +61,10 @@ class CertificateController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:255',
             'document' => [
-                'nullable',
+                'nullable', // Sigue siendo nullable porque a veces solo editan el nombre
                 'file',
-                'mimes:docx',
-                'mimetypes:application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                'mimes:pdf', // <-- Aquí el cambio clave a pdf
+                'mimetypes:application/pdf' // <-- El mimetype oficial de los PDF
             ]
         ]);
 
@@ -70,10 +72,12 @@ class CertificateController extends Controller
         $certificate->code = strtoupper($request->code);
 
         if ($request->hasFile('document')) {
+            // Borramos la plantilla PDF anterior si existe
             if (Storage::exists($certificate->file_path)) {
                 Storage::delete($certificate->file_path);
             }
 
+            // Subimos la nueva
             $file = $request->file('document');
             $certificate->file_path = $file->store('templates');
             $certificate->file_name = $file->getClientOriginalName();
@@ -82,7 +86,7 @@ class CertificateController extends Controller
         $certificate->save();
 
         return response()->json([
-            'message' => 'Plantilla actualizada correctamente.',
+            'message' => 'Plantilla PDF actualizada correctamente.',
             'data' => $certificate
         ]);
     }
@@ -98,17 +102,43 @@ class CertificateController extends Controller
 
     public function destroy(Certificate $certificate)
     {
-        // 1. Verificamos si el archivo físico existe en el servidor y lo borramos
-        if (Storage::exists($certificate->file_path)) {
-            Storage::delete($certificate->file_path);
+        try {
+            // Guardamos la ruta antes de eliminar el modelo
+            $filePath = $certificate->file_path;
+
+            // 1. Intentamos borrar en PostgreSQL PRIMERO
+            // Si está amarrado a constancias emitidas, esto fallará y saltará al catch
+            // protegiendo así nuestro archivo físico.
+            $certificate->delete();
+
+            // 2. Si la BD nos dejó borrarlo, ahora sí eliminamos el archivo físico PDF
+            if ($filePath && Storage::exists($filePath)) {
+                Storage::delete($filePath);
+            }
+
+            // 3. Respondemos éxito a Angular
+            return response()->json([
+                'message' => 'Plantilla PDF y archivo eliminados correctamente.'
+            ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Error 23503 es la violación de llave foránea en PostgreSQL
+            if ($e->getCode() == '23503') {
+                return response()->json([
+                    'message' => 'No se puede eliminar la plantilla porque ya tiene constancias emitidas generadas con ella.'
+                ], 409); // 409 Conflict
+            }
+
+            // Cualquier otro error de base de datos
+            return response()->json([
+                'message' => 'Error de base de datos al intentar eliminar la plantilla.'
+            ], 500);
+
+        } catch (\Exception $e) {
+            // Fallo general
+            return response()->json([
+                'message' => 'Error inesperado: ' . $e->getMessage()
+            ], 500);
         }
-
-        // 2. Borramos el registro de la base de datos de PostgreSQL
-        $certificate->delete();
-
-        // 3. Le respondemos a Angular que todo salió bien
-        return response()->json([
-            'message' => 'Plantilla y archivo eliminados correctamente.'
-        ]);
     }
 }
