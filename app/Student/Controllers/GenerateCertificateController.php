@@ -87,24 +87,46 @@ class GenerateCertificateController extends Controller
                 $processor->setValue('QR_CODE', 'ERROR_DE_RED_VPS');
             }
 
-            // 6. Guardar el nuevo documento fusionado
-            $fileName = 'CONSTANCIA_' . $student->dni . '_' . time() . '.docx';
-            $relativeSavePath = 'generated_certificates/' . $fileName;
+           // --- 6. GUARDAR WORD TEMPORAL Y CONVERTIR A PDF ---
+            $baseFileName = 'CONSTANCIA_' . $student->dni . '_' . time();
+            
+            // Definimos las rutas para el Word y para el futuro PDF
+            $relativeDocxPath = 'generated_certificates/' . $baseFileName . '.docx';
+            $relativePdfPath  = 'generated_certificates/' . $baseFileName . '.pdf';
 
             Storage::makeDirectory('generated_certificates');
-            $absoluteSavePath = Storage::path($relativeSavePath);
-            $processor->saveAs($absoluteSavePath);
+            
+            $absoluteDocxPath = Storage::path($relativeDocxPath);
+            $outdir           = Storage::path('generated_certificates');
 
-            // Limpieza de servidor
+            // A) Guardamos el Word con las variables ya reemplazadas
+            $processor->saveAs($absoluteDocxPath);
+
+            // B) Magia Negra: Llamamos a Ubuntu (LibreOffice) para convertir el Word a PDF
+            $command = 'soffice --headless --convert-to pdf "' . $absoluteDocxPath . '" --outdir "' . $outdir . '"';
+            exec($command . ' 2>&1', $output, $return_var);
+
+            // Si LibreOffice falla, lanzamos un error para ver qué pasó
+            if ($return_var !== 0) {
+                throw new Exception("Error al convertir a PDF con LibreOffice: " . implode("\n", $output));
+            }
+
+            // --- 7. LIMPIEZA DE SERVIDOR ---
             if (file_exists($qrTempPath)) {
                 unlink($qrTempPath);
             }
+            // El Word ya hizo su trabajo, lo destruimos para dejar solo el PDF
+            if (file_exists($absoluteDocxPath)) {
+                unlink($absoluteDocxPath);
+            }
 
+            // --- 8. REGISTRO EN LA BASE DE DATOS ---
             $issued = IssuedCertificate::create([
                 'certificate_id' => $certificate->id,
                 'student_code' => $student->dni,
                 'certificate_code' => $request->certificate_code,
-                'file_path' => $relativeSavePath,
+                // ¡OJO AQUÍ! Guardamos la ruta del PDF, no del Word
+                'file_path' => $relativePdfPath, 
                 'tracking_code' => $trackingCode
             ]);
 
@@ -115,13 +137,11 @@ class GenerateCertificateController extends Controller
             ]);
 
         } catch (Exception $e) {
-            // Si algo falla, lo guardamos en el log y se lo avisamos a Angular
-            Log::error("Error generando constancia con QR: " . $e->getMessage());
+            Log::error("Error generando constancia con QR/PDF: " . $e->getMessage());
 
-            // Aseguramos borrar el QR si falló a la mitad del proceso
-            if (isset($qrTempPath) && file_exists($qrTempPath)) {
-                unlink($qrTempPath);
-            }
+            if (isset($qrTempPath) && file_exists($qrTempPath)) unlink($qrTempPath);
+            // Limpiar el docx si falló la conversión
+            if (isset($absoluteDocxPath) && file_exists($absoluteDocxPath)) unlink($absoluteDocxPath);
 
             return response()->json([
                 'message' => 'Error al generar documento: ' . $e->getMessage()
