@@ -75,8 +75,8 @@ class GenerateCertificateController extends Controller
                     // Inyectamos la imagen
                     $processor->setImageValue('QR_CODE', [
                         'path' => $qrTempPath,
-                        'width' => 60,
-                        'height' => 60,
+                        'width' => 100,
+                        'height' => 100,
                         'ratio' => false,
                         'align' => 'right',
                     ]);
