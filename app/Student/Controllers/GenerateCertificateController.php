@@ -75,8 +75,8 @@ class GenerateCertificateController extends Controller
                     // Inyectamos la imagen
                     $processor->setImageValue('QR_CODE', [
                         'path' => $qrTempPath,
-                        'width' => 100,
-                        'height' => 100,
+                        'width' => 60,
+                        'height' => 60,
                         'ratio' => false,
                         'align' => 'right',
                     ]);
@@ -89,13 +89,13 @@ class GenerateCertificateController extends Controller
 
            // --- 6. GUARDAR WORD TEMPORAL Y CONVERTIR A PDF ---
             $baseFileName = 'CONSTANCIA_' . $student->dni . '_' . time();
-            
+
             // Definimos las rutas para el Word y para el futuro PDF
             $relativeDocxPath = 'generated_certificates/' . $baseFileName . '.docx';
             $relativePdfPath  = 'generated_certificates/' . $baseFileName . '.pdf';
 
             Storage::makeDirectory('generated_certificates');
-            
+
             $absoluteDocxPath = Storage::path($relativeDocxPath);
             $outdir           = Storage::path('generated_certificates');
 
@@ -126,7 +126,7 @@ class GenerateCertificateController extends Controller
                 'student_code' => $student->dni,
                 'certificate_code' => $request->certificate_code,
                 // ¡OJO AQUÍ! Guardamos la ruta del PDF, no del Word
-                'file_path' => $relativePdfPath, 
+                'file_path' => $relativePdfPath,
                 'tracking_code' => $trackingCode
             ]);
 
