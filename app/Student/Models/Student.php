@@ -24,11 +24,16 @@ class Student extends Model
         'address',
         'admission_mode',
         'program',
-        'campus',
         'modality',
-        'shift',
         'status',
-        'graduation_year'
+        'faculty',
+        'start_semester',
+        'start_date',
+        'academic_cycle',
+        'current_semester',
+        'graduation_semester',
+        'graduation_date',
+        'credits',
     ];
 
     /**
