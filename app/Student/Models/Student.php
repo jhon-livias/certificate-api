@@ -7,28 +7,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
 {
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
-        'id',
-        'name',
-        'surname',
-        'dni',
-        'program_type',
+        'student_code',
+        'document_number',
+        'full_name',
         'program',
-        'period',
+        'modality',
+        'faculty',
+        'start_semester',
+        'start_date',
+        'academic_cycle',
+        'current_semester',
+        'graduation_semester',
+        'graduation_date',
+        'credits',
+        'gender',
         'email',
+        'phone',
+        'address',
+        'admission_mode',
         'status',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'creator_user_id',
         'creation_time',
@@ -39,11 +39,6 @@ class Student extends Model
         'deletion_time',
     ];
 
-    /**
-     * Indicates if the model should be timestamped.
-     *
-     * @var bool
-     */
     public $timestamps = false;
 
     public function certificates(): HasMany

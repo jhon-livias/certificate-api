@@ -4,11 +4,19 @@ namespace App\Student\Controllers;
 
 use App\Shared\Foundation\Controllers\Controller;
 use App\Student\Models\Certificate;
+use App\Student\Services\CertificateCodeService;
+use App\Student\Services\WordDocumentService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 
 class CertificateController extends Controller
 {
+    public function __construct(
+        protected CertificateCodeService $certificateCodeService,
+        protected WordDocumentService $wordDocumentService,
+    ) {
+    }
+
     public function index()
     {
         $templates = Certificate::orderBy('creation_time', 'desc')->get()->map(function ($tpl) {
@@ -16,12 +24,20 @@ class CertificateController extends Controller
                 'id' => $tpl->id,
                 'name' => $tpl->name,
                 'code' => $tpl->code,
+                'nextCode' => $this->certificateCodeService->nextCode($tpl),
                 'fileName' => $tpl->file_name,
-                'updatedAt' => $tpl->last_modification_time ? $tpl->last_modification_time->diffForHumans() : 'Hace un momento'
+                'updatedAt' => $tpl->last_modification_time ? $tpl->last_modification_time->diffForHumans() : 'Hace un momento',
             ];
         });
 
         return response()->json($templates);
+    }
+
+    public function nextCode(Certificate $certificate)
+    {
+        return response()->json([
+            'nextCode' => $this->certificateCodeService->nextCode($certificate),
+        ]);
     }
 
     public function store(Request $request)
@@ -94,6 +110,25 @@ class CertificateController extends Controller
         }
 
         return Storage::download($certificate->file_path, $certificate->file_name);
+    }
+
+    public function preview(Certificate $certificate)
+    {
+        if (!Storage::exists($certificate->file_path)) {
+            return response()->json(['message' => 'Archivo no encontrado'], 404);
+        }
+
+        $nextCode = $this->certificateCodeService->nextCode($certificate);
+        $previewPath = $this->wordDocumentService->buildPreview(
+            Storage::path($certificate->file_path),
+            $nextCode,
+        );
+
+        return Storage::download(
+            $previewPath,
+            'preview_' . $certificate->file_name,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+        );
     }
 
     public function destroy(Certificate $certificate)

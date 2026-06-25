@@ -6,9 +6,11 @@ use App\Student\Models\IssuedCertificate;
 use App\Student\Models\Student;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 
 class CertificateDispatched extends Mailable
@@ -60,11 +62,16 @@ class CertificateDispatched extends Mailable
      */
     public function attachments(): array
     {
+        if (!Storage::exists($this->issuedCertificate->file_path)) {
+            return [];
+        }
+
+        $safeFileName = str_replace(['/', '\\'], '-', $this->issuedCertificate->certificate_code) . '.pdf';
+
         return [
-            // CORRECCIÓN AQUÍ: Usamos Storage::path() y $this->issuedCertificate
-            // Attachment::fromPath(Storage::path($this->issuedCertificate->file_path))
-            //     ->as($this->issuedCertificate->certificate_code . '.docx')
-            //     ->withMime('application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+            Attachment::fromPath(Storage::path($this->issuedCertificate->file_path))
+                ->as($safeFileName)
+                ->withMime('application/pdf'),
         ];
     }
 }

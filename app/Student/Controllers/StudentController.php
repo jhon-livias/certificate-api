@@ -21,7 +21,11 @@ class StudentController extends Controller
 
     public function student(string $code): JsonResponse
     {
-        $student = Student::where('dni', $code)->firstOrFail();
+        $student = Student::query()
+            ->where('document_number', $code)
+            ->orWhere('student_code', $code)
+            ->firstOrFail();
+
         return response()->json(new StudentResource($student));
     }
 
@@ -31,7 +35,19 @@ class StudentController extends Controller
             request: $request,
             entityName: 'Student',
             modelName: 'Student',
-            columnSearch: ['id', 'dni', 'name', 'surname', 'program_type', 'program', 'period', 'email'],
+            columnSearch: [
+                'id',
+                'student_code',
+                'document_number',
+                'full_name',
+                'program',
+                'modality',
+                'faculty',
+                'academic_cycle',
+                'current_semester',
+                'email',
+                'status',
+            ],
         );
 
         return response()->json(new GetAllCollection(
@@ -54,10 +70,16 @@ class StudentController extends Controller
 
         $path = $request->file('document')->store('imports');
 
-        ProcessStudentBulkJob::dispatch($path);
+        if (app()->environment('local')) {
+            ProcessStudentBulkJob::dispatchSync($path);
+        } else {
+            ProcessStudentBulkJob::dispatch($path);
+        }
 
         return response()->json([
-            'message' => 'La carga masiva de estudiantes ha comenzado en segundo plano.'
+            'message' => app()->environment('local')
+                ? 'La carga masiva de estudiantes se procesó correctamente.'
+                : 'La carga masiva de estudiantes ha comenzado en segundo plano.'
         ], 202);
     }
 }

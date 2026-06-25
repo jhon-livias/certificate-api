@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('students', function (Blueprint $table) {
@@ -21,21 +18,30 @@ return new class extends Migration {
             $table->foreignId('deleter_user_id')->nullable()->constrained('users');
             $table->boolean('is_deleted')->default(false);
 
-            // Identidad (Las 3 primeras columnas del Excel)
-            $table->string('name')->comment('Columna A: NOMBRE');
-            $table->string('surname')->comment('Columna B: APELLIDO');
-            $table->string('dni')->comment('Columna C: DNI');
-            $table->string('program_type')->comment('Columna D: TIPO DE PROGRAMA');
-            $table->string('program')->comment('Columna E: PROGRAMA');
-            $table->string('period')->comment('Columna F: PERIODO');
-            $table->string('email')->comment('Columna G: CORREO');
+            $table->string('student_code')->nullable();
+            $table->string('document_number');
+            $table->string('full_name');
+            $table->string('program')->nullable();
+            $table->string('modality')->nullable();
+            $table->string('faculty')->nullable();
+            $table->string('start_semester')->nullable();
+            $table->string('start_date')->nullable();
+            $table->string('academic_cycle')->nullable();
+            $table->string('current_semester')->nullable();
+            $table->string('graduation_semester')->nullable();
+            $table->string('graduation_date')->nullable();
+            $table->string('credits')->nullable();
+            $table->string('gender')->nullable();
+            $table->string('email')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('address')->nullable();
+            $table->string('admission_mode')->nullable();
             $table->string('status')->nullable();
+
+            $table->unique('document_number');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('students');

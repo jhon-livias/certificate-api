@@ -16,6 +16,8 @@ class Certificate extends Model
         'id',
         'name',
         'code',
+        'sequence_suffix',
+        'sequence_start',
         'file_name',
         'file_path',
         'last_modification_time',

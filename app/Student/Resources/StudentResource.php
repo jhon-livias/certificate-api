@@ -6,33 +6,21 @@ use App\Student\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** * @mixin Student
- * @property int $id
- * @property string $name
- * @property string $surname
- * @property string $dni
- * @property string $program_type
- * @property string $program
- * @property string $period
- * @property string $email
- * @property string $status
- */
+/** @mixin Student */
 class StudentResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'surname' => $this->surname,
-            'dni' => $this->dni,
-            'programType' => $this->program_type,
+            'studentCode' => $this->student_code,
+            'documentNumber' => $this->document_number,
+            'fullName' => $this->full_name,
             'program' => $this->program,
+            'modality' => $this->modality,
+            'faculty' => $this->faculty,
+            'cycle' => $this->academic_cycle,
+            'currentSemester' => $this->current_semester,
             'email' => $this->email,
             'status' => $this->status,
         ];

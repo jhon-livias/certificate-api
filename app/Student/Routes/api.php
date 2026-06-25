@@ -16,6 +16,8 @@ Route::controller(CertificateController::class)->group(function() {
     Route::post('/certificates/{certificate}', 'update');
     Route::delete('/certificates/{certificate}', 'destroy');
     Route::get('/certificates/{certificate}/download', 'download');
+    Route::get('/certificates/{certificate}/preview', 'preview');
+    Route::get('/certificates/{certificate}/next-code', 'nextCode');
     Route::get('/certificates', 'index');
 });
 

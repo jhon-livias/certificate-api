@@ -28,7 +28,7 @@ class ValidationController extends Controller
         }
 
         // Buscamos si el DNI coincide con el estudiante dueño de esa constancia
-        $student = Student::where('dni', $request->dni)->first();
+        $student = Student::where('document_number', $request->dni)->first();
 
         if (!$student) {
             return response()->json(['message' => 'El DNI no corresponde al titular de esta constancia.'], 403);
@@ -37,7 +37,7 @@ class ValidationController extends Controller
         return response()->json([
             'message' => 'Constancia validada exitosamente.',
             'data' => [
-                'student_name' => $student->fullName,
+                'student_name' => $student->full_name,
                 'program' => $student->program,
                 'issue_date' => $cert->creation_time->format('d/m/Y'),
                 'certificate_code' => $cert->certificate_code
@@ -51,7 +51,7 @@ class ValidationController extends Controller
                     ->where('certificate_code', $request->query('code'))
                     ->firstOrFail();
 
-        $student = Student::where('dni', $request->query('dni'))
+        $student = Student::where('document_number', $request->query('dni'))
                     ->firstOrFail();
 
         $absolutePath = Storage::path($cert->file_path);
@@ -62,9 +62,10 @@ class ValidationController extends Controller
 
         // ¡EL ARREGLO ESTÁ AQUÍ! Limpiamos el código para que sea un nombre de archivo válido
         // Reemplazamos las barras (/) y backslashes (\) por un guion (-)
-        $safeFileName = str_replace(['/', '\\'], '-', $cert->certificate_code) . '.docx';
+        $safeFileName = str_replace(['/', '\\'], '-', $cert->certificate_code) . '.pdf';
 
-        // Ahora sí lo enviamos a descargar con el nombre seguro
-        return response()->download($absolutePath, $safeFileName);
+        return response()->download($absolutePath, $safeFileName, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 }
